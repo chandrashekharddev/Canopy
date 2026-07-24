@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Canopy — NDVI Crop Classifier</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<div class="scanline-bg" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark">◍</span>
+      <span class="brand-name">Canopy</span>
+      <span class="brand-tag">NDVI Crop Intelligence</span>
+    </div>
+    <div class="status-pills" id="statusPills">
+      <span class="pill pill-loading" id="pillModel">● model</span>
+      <span class="pill pill-loading" id="pillGee">● earth engine</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>See what's growing, <span class="accent">from space.</span></h1>
+    <p class="hero-sub">
+      Point at any farm on Earth and a date. Canopy pulls a Sentinel-2 NDVI time series
+      through Google Earth Engine, extracts the crop's growth lifecycle, classifies the
+      crop, and reads out its vegetation health — Tomato, Cotton, Paddy, Sugarcane, or Onion.
+    </p>
+  </section>
+
+  <section class="tool-card">
+    <div class="tabs" role="tablist">
+      <button class="tab active" id="tabSingleBtn" role="tab" aria-selected="true">Single Point</button>
+      <button class="tab" id="tabBatchBtn" role="tab" aria-selected="false">Batch Upload</button>
+    </div>
+
+    <!-- ===================== SINGLE POINT ===================== -->
+    <div class="tab-panel active" id="panelSingle">
+      <form id="singleForm" class="form-grid">
+        <div class="field">
+          <label for="lat">Latitude</label>
+          <input type="number" id="lat" step="any" min="-90" max="90" placeholder="e.g. 18.5204" required />
+        </div>
+        <div class="field">
+          <label for="lon">Longitude</label>
+          <input type="number" id="lon" step="any" min="-180" max="180" placeholder="e.g. 73.8567" required />
+        </div>
+        <div class="field">
+          <label for="targetDate">Target / ground-truth date</label>
+          <input type="date" id="targetDate" required />
+        </div>
+        <div class="field">
+          <label for="cropHint">Crop hint <span class="optional">(optional — improves accuracy)</span></label>
+          <select id="cropHint">
+            <option value="">Let the model decide</option>
+            {% for crop in crops %}
+            <option value="{{ crop }}">{{ crop }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field field-full">
+          <button type="submit" class="btn-primary" id="singleSubmitBtn">
+            <span class="btn-label">Run prediction</span>
+            <span class="btn-spinner" hidden></span>
+          </button>
+        </div>
+      </form>
+
+      <p class="hint">
+        Tip: choosing <strong>Sugarcane</strong> as the crop hint extracts a full
+        ±12 month window from Earth Engine (instead of ±6) so its ~13–14 month lifecycle
+        is captured completely.
+      </p>
+
+      <div id="singleError" class="error-box" hidden></div>
+      <div id="singleResult" class="result-area" hidden></div>
+    </div>
+
+    <!-- ===================== BATCH UPLOAD ===================== -->
+    <div class="tab-panel" id="panelBatch">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden />
+        <div class="dropzone-icon">⤒</div>
+        <p><strong>Drop a CSV or Excel file</strong> or click to browse</p>
+        <p class="dropzone-sub">
+          Columns needed: <code>Latitude</code>, <code>Longitude</code>, and a
+          <code>GroundTruth_Date</code> (or <code>Date</code>) column.
+          <code>Farm_ID</code> and <code>Crop</code> are optional. Up to 200 rows per file.
+        </p>
+        <span id="fileNameLabel" class="file-name"></span>
+      </div>
+      <button class="btn-primary" id="batchSubmitBtn" disabled>
+        <span class="btn-label">Run batch prediction</span>
+        <span class="btn-spinner" hidden></span>
+      </button>
+
+      <div id="batchProgress" class="batch-progress" hidden>
+        <div class="spinner-lg"></div>
+        <p>Querying Earth Engine and classifying each point — this can take a little while for many rows.</p>
+      </div>
+
+      <div id="batchError" class="error-box" hidden></div>
+      <div id="batchResult" class="result-area" hidden></div>
+    </div>
+  </section>
+
+  <section class="legend-section">
+    <h2>NDVI health scale</h2>
+    <div class="legend-grid" id="legendGrid"><!-- filled by JS --></div>
+  </section>
+</main>
+
+<footer>
+  <p>Canopy runs Sentinel-2 imagery through Google Earth Engine and a trained crop-lifecycle classifier. Predictions depend on cloud-free imagery availability for the chosen location/date.</p>
+</footer>
+
+<template id="resultCardTemplate">
+  <div class="result-card">
+    <div class="result-head">
+      <div>
+        <span class="result-farm-id"></span>
+        <h3 class="result-crop"></h3>
+      </div>
+      <div class="confidence-badge">
+        <span class="confidence-value"></span>
+        <span class="confidence-label">confidence</span>
+      </div>
+    </div>
+
+    <div class="result-body">
+      <div class="probability-bars"></div>
+
+      <div class="detail-grid">
+        <div class="detail-item">
+          <span class="detail-label">Lifecycle window</span>
+          <span class="detail-value lifecycle-window"></span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Duration</span>
+          <span class="detail-value lifecycle-duration"></span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Peak NDVI</span>
+          <span class="detail-value peak-ndvi"></span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Peak date</span>
+          <span class="detail-value peak-date"></span>
+        </div>
+      </div>
+
+      <div class="health-row">
+        <div class="health-chip health-chip-peak">
+          <span class="health-dot"></span>
+          <div>
+            <div class="health-title">At peak growth</div>
+            <div class="health-label"></div>
+          </div>
+        </div>
+        <div class="health-chip health-chip-nearest">
+          <span class="health-dot"></span>
+          <div>
+            <div class="health-title">Nearest to target date</div>
+            <div class="health-label"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-svg"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
