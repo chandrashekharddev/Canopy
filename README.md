@@ -76,12 +76,6 @@ the backend can authenticate without any interactive login.
 5. Save the JSON key somewhere safe, e.g. `secrets/gee-service-account.json`, and set environment
    variables (copy `.env.example` → `.env` and fill in, or export them directly):
 
-   ```bash
-   export GEE_SERVICE_ACCOUNT_EMAIL="my-service-account@my-project.iam.gserviceaccount.com"
-   export GEE_PRIVATE_KEY_FILE="secrets/gee-service-account.json"
-   export GEE_PROJECT="my-gcp-project-id"
-   ```
-
    `gee_service.py` reads these automatically and initializes Earth Engine on first use — nothing
    else to wire up. If you don't set them, it falls back to whatever `earthengine authenticate`
    has cached locally (fine for local dev, not for a deployed server).
