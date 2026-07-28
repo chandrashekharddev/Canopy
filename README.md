@@ -72,7 +72,7 @@ the backend can authenticate without any interactive login.
 using **exactly** the pipeline from your notebook (ground-truth-aware lifecycle extraction →
 30 engineered features → 5-fold CV across 7-8 classifier families → best model refit on all data).
 
-- **Best model selected:** XGBoost
+- **Best model selected:** Random Forest
 - **5-fold CV accuracy:** ~96.5%
 - **Held-out test accuracy:** ~96%
 
