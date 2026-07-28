@@ -16,24 +16,8 @@ Latitude, Longitude, Date  ──►  GEE: Sentinel-2 NDVI time series  ──�
 
 ---
 
-## 1. What changed vs. your original script
 
-- **Sugarcane window**: your JS script used a fixed `±6 month` window for every crop. This app
-  keeps `±6 months` for Tomato/Cotton/Paddy/Onion, but uses **`±12 months` (24 months total) for
-  Sugarcane** specifically, so its full ~13–14 month lifecycle is always captured even if the
-  ground-truth date lands near the start or end of the growing season. See `WINDOW_MONTHS` in
-  `gee_service.py`.
-- **Single point instead of a FeatureCollection**: the JS script processed a whole
-  `FeatureCollection` of farms exported from a CSV asset. `gee_service.py` does the same
-  filtering/dedup/NDVI logic but for one `(lat, lon)` point at a time, called live from the API
-  (batch upload just calls it once per row).
-- **Everything else is identical**: same collection (`COPERNICUS/S2_SR_HARMONIZED`), same cloud
-  filter (`CLOUDY_PIXEL_PERCENTAGE < 20`), same de-duplication (lowest-cloud image per date), same
-  NDVI formula (`(B8-B4)/(B8+B4)`), same 10 m sampling scale.
-
----
-
-## 2. Project structure
+## 1. Project structure
 
 ```
 app/
